@@ -1,0 +1,625 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CodeR 3D - Cyberpunk Interface</title>
+    <style>
+        :root {
+            --neon-blue: #00f3ff;
+            --neon-pink: #ff00ff;
+            --bg-dark: #050510;
+            --glass: rgba(255, 255, 255, 0.05);
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: var(--bg-dark);
+            font-family: 'Courier New', Courier, monospace;
+            color: var(--neon-blue);
+            user-select: none;
+        }
+
+        #canvas-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        /* UI Overlay */
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+            box-sizing: border-box;
+            background: radial-gradient(circle at center, transparent 0%, rgba(0,0,0,0.4) 100%);
+        }
+
+        .hud-element {
+            background: var(--glass);
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(0, 243, 255, 0.2);
+            padding: 15px;
+            border-radius: 4px;
+            pointer-events: auto;
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .hud-element:hover {
+            border-color: var(--neon-blue);
+            box-shadow: 0 0 25px rgba(0, 243, 255, 0.3);
+        }
+
+        /* Header */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 1.5rem;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            text-shadow: 0 0 10px var(--neon-blue);
+        }
+
+        .status-bar {
+            font-size: 0.8rem;
+            display: flex;
+            gap: 15px;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .indicator {
+            width: 8px;
+            height: 8px;
+            background: var(--neon-blue);
+            border-radius: 50%;
+            box-shadow: 0 0 8px var(--neon-blue);
+            animation: blink 2s infinite;
+        }
+
+        /* Controls Info */
+        #controls-info {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            max-width: 300px;
+            font-size: 0.75rem;
+            line-height: 1.4;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        /* Action Button */
+        #action-btn {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: transparent;
+            border: 1px solid var(--neon-pink);
+            color: var(--neon-pink);
+            padding: 12px 24px;
+            font-family: inherit;
+            font-weight: bold;
+            text-transform: uppercase;
+            cursor: pointer;
+            letter-spacing: 2px;
+            transition: all 0.2s;
+            pointer-events: auto;
+        }
+
+        #action-btn:hover {
+            background: var(--neon-pink);
+            color: #000;
+            box-shadow: 0 0 20px var(--neon-pink);
+        }
+
+        /* Loading Screen */
+        #loader {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            transition: opacity 0.5s ease;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 2px solid transparent;
+            border-top: 2px solid var(--neon-blue);
+            border-right: 2px solid var(--neon-pink);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 15px;
+        }
+
+        .loader-text {
+            font-size: 0.9rem;
+            letter-spacing: 3px;
+            animation: pulse 1.5s infinite;
+        }
+
+        /* Animations */
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+        @keyframes pulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
+        
+        /* Scanlines Effect */
+        .scanlines {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.1));
+            background-size: 100% 4px;
+            z-index: 5;
+            pointer-events: none;
+            opacity: 0.3;
+        }
+
+        #code-display {
+            position: absolute;
+            top: 20%;
+            left: 50%;
+            transform: translateX(-50%);
+            font-family: 'Courier New', monospace;
+            font-size: 0.8rem;
+            color: var(--neon-blue);
+            text-shadow: 0 0 5px var(--neon-blue);
+            opacity: 0.6;
+            text-align: center;
+            width: 80%;
+            pointer-events: none;
+        }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            h1 { font-size: 1.2rem; }
+            .status-bar { font-size: 0.6rem; flex-direction: column; gap: 5px; }
+            #controls-info { font-size: 0.65rem; max-width: 200px; }
+            .hud-element { padding: 10px; }
+        }
+    </style>
+    <!-- Import Three.js from CDN -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+</head>
+<body>
+
+    <!-- Loading Screen -->
+    <div id="loader">
+        <div class="spinner"></div>
+        <div class="loader-text">INITIALIZING SYSTEM...</div>
+    </div>
+
+    <!-- Visual Effects -->
+    <div class="scanlines"></div>
+
+    <!-- UI Layer -->
+    <div id="ui-layer">
+        <header>
+            <div class="hud-element">
+                <h1>CodeR 3D</h1>
+                <div style="font-size: 0.7rem; opacity: 0.7;">// VIRTUAL ENVIRONMENT</div>
+            </div>
+            <div class="hud-element status-bar">
+                <div class="status-item"><div class="indicator"></div> LINKED</div>
+                <div class="status-item">FPS: <span id="fps-counter">60</span></div>
+                <div class="status-item">PARTICLES: <span id="particle-count">1000</span></div>
+            </div>
+        </header>
+
+        <div id="code-display">
+            > SYSTEM_READY_<br>
+            > AWAITING_INPUT_<br>
+            > RENDERING_HOLOGRAM...
+        </div>
+
+        <div id="controls-info" class="hud-element">
+            <strong>CONTROLS:</strong><br>
+            • Mouse Drag: Rotate View<br>
+            • Scroll: Zoom In/Out<br>
+            • Click: Trigger Glitch Effect<br>
+            • Hover: Interactive Nodes
+        </div>
+
+        <button id="action-btn">EXECUTE_RENDER</button>
+    </div>
+
+    <!-- 3D Canvas Container -->
+    <div id="canvas-container"></div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+        import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+        import { GlitchPass } from 'three/addons/postprocessing/GlitchPass.js';
+        import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+
+        // --- CONFIGURATION ---
+        const config = {
+            particleCount: 2000,
+            gridSize: 40,
+            cameraSpeed: 0.5,
+            colorPrimary: 0x00f3ff,
+            colorSecondary: 0xff00ff
+        };
+
+        // --- SCENE SETUP ---
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x050510, 0.015); // Dense fog for depth
+        
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 15, 30);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Optimize for high DPI
+        renderer.toneMapping = THREE.ReinhardToneMapping;
+        container.appendChild(renderer.domElement);
+
+        // --- CONTROLS ---
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.maxDistance = 60;
+        controls.minDistance = 5;
+        controls.autoRotate = true;
+        controls.autoRotateSpeed = 0.5;
+
+        // --- LIGHTING ---
+        const ambientLight = new THREE.AmbientLight(0x404040, 2);
+        scene.add(ambientLight);
+
+        const pointLight1 = new THREE.PointLight(config.colorPrimary, 2, 50);
+        pointLight1.position.set(10, 10, 10);
+        scene.add(pointLight1);
+
+        const pointLight2 = new THREE.PointLight(config.colorSecondary, 2, 50);
+        pointLight2.position.set(-10, -5, -10);
+        scene.add(pointLight2);
+
+        // --- GEOMETRY & MATERIALS ---
+
+        // 1. The "CodeR" Core (Floating Cube)
+        const coreGeo = new THREE.BoxGeometry(2, 2, 2);
+        const coreMat = new THREE.MeshPhysicalMaterial({
+            color: 0x111111,
+            metalness: 0.9,
+            roughness: 0.1,
+            clearcoat: 1.0,
+            clearcoatRoughness: 0.1,
+            emissive: config.colorPrimary,
+            emissiveIntensity: 0.5,
+            wireframe: false
+        });
+        const core = new THREE.Mesh(coreGeo, coreMat);
+        scene.add(core);
+
+        // Wireframe Shell for the Core
+        const shellGeo = new THREE.BoxGeometry(2.2, 2.2, 2.2);
+        const shellMat = new THREE.MeshBasicMaterial({ 
+            color: config.colorPrimary, 
+            wireframe: true, 
+            transparent: true, 
+            opacity: 0.2 
+        });
+        const shell = new THREE.Mesh(shellGeo, shellMat);
+        scene.add(shell);
+
+        // 2. The Grid Floor (Digital Horizon)
+        const gridHelper = new THREE.GridHelper(config.gridSize, config.gridSize, config.colorPrimary, 0x222222);
+        gridHelper.position.y = -5;
+        gridHelper.material.transparent = true;
+        gridHelper.material.opacity = 0.3;
+        scene.add(gridHelper);
+
+        // 3. Floating Data Nodes (Instanced Meshes for Performance)
+        const nodeGeo = new THREE.IcosahedronGeometry(0.15, 0);
+        const nodeMat = new THREE.MeshStandardMaterial({ 
+            color: config.colorSecondary,
+            emissive: config.colorSecondary,
+            emissiveIntensity: 0.8,
+            roughness: 0.4
+        });
+        
+        const nodeCount = 150;
+        const dummy = new THREE.Object3D();
+        const nodes = new THREE.InstancedMesh(nodeGeo, nodeMat, nodeCount);
+        scene.add(nodes);
+
+        // Store initial positions for animation
+        const nodePositions = [];
+        for (let i = 0; i < nodeCount; i++) {
+            const r = 6 + Math.random() * 10;
+            const theta = Math.random() * Math.PI * 2;
+            const phi = Math.random() * Math.PI;
+            
+            const x = r * Math.sin(phi) * Math.cos(theta);
+            const y = r * Math.sin(phi) * Math.sin(theta) - 2; // Offset down slightly
+            const z = r * Math.cos(phi);
+
+            nodePositions.push({ x, y, z, speed: 0.5 + Math.random() * 1.5, offset: Math.random() * 100 });
+            dummy.position.set(x, y, z);
+            dummy.updateMatrix();
+            nodes.setMatrixAt(i, dummy.matrix);
+        }
+
+        // 4. Particle System (Matrix Rain Style)
+        const particlesGeo = new THREE.BufferGeometry();
+        const particlesPos = new Float32Array(config.particleCount * 3);
+        
+        for (let i = 0; i < config.particleCount * 3; i+=3) {
+            particlesPos[i] = (Math.random() - 0.5) * 100; // x
+            particlesPos[i+1] = (Math.random() - 0.5) * 50 + 10; // y (mostly above)
+            particlesPos[i+2] = (Math.random() - 0.5) * 100; // z
+        }
+        
+        particlesGeo.setAttribute('position', new THREE.BufferAttribute(particlesPos, 3));
+        const particlesMat = new THREE.PointsMaterial({
+            color: 0xffffff,
+            size: 0.15,
+            transparent: true,
+            opacity: 0.6,
+            blending: THREE.AdditiveBlending
+        });
+        const particleSystem = new THREE.Points(particlesGeo, particlesMat);
+        scene.add(particleSystem);
+
+        // --- POST-PROCESSING ---
+        // We create a composer to handle visual effects
+        const composer = new EffectComposer(renderer);
+        
+        const renderPass = new RenderPass(scene, camera);
+        composer.addPass(renderPass);
+
+        // Bloom (Glow effect)
+        const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
+        bloomPass.threshold = 0.2;
+        bloomPass.strength = 1.2; // High strength for neon look
+        bloomPass.radius = 0.5;
+        composer.addPass(bloomPass);
+
+        // Glitch (Distortion effect)
+        const glitchPass = new GlitchPass();
+        glitchPass.goWild = false;
+        glitchPass.enabled = false; // Start disabled
+        composer.addPass(glitchPass);
+
+        // --- INTERACTION LOGIC ---
+        
+        // Mouse interaction for raycasting (hover effects)
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+
+        let isGlitchActive = false;
+        let glitchTimeout;
+
+        function onMouseMove(event) {
+            // Normalize mouse coordinates
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+            // React to proximity to center
+            const distToCenter = Math.sqrt(mouse.x * mouse.x + mouse.y * mouse.y);
+            if (distToCenter < 0.2) {
+                coreMat.emissiveIntensity = 1.5; // Brighten core
+            } else {
+                coreMat.emissiveIntensity = 0.5;
+            }
+        }
+
+        function onClick(event) {
+            // Trigger glitch effect
+            activateGlitch();
+            updateCodeDisplay(">> SECURITY_BREACH_DETECTED\n>> COUNTERMEASURES_ACTIVE");
+        }
+
+        function activateGlitch() {
+            if (glitchTimeout) clearTimeout(glitchTimeout);
+            
+            glitchPass.enabled = true;
+            isGlitchActive = true;
+
+            // Visual feedback on UI
+            document.body.style.filter = "hue-rotate(90deg) saturate(1.5)";
+            document.getElementById('code-display').style.textShadow = "2px 2px var(--neon-pink)";
+
+            glitchTimeout = setTimeout(() => {
+                glitchPass.enabled = false;
+                isGlitchActive = false;
+                document.body.style.filter = "none";
+                document.getElementById('code-display').style.textShadow = "0 0 5px var(--neon-blue)";
+                updateCodeDisplay("> SYSTEM_READY_\n> AWAITING_INPUT_");
+            }, 800);
+        }
+
+        function onResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            composer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // --- UI LOGIC ---
+        const fpsDisplay = document.getElementById('fps-counter');
+        const btn = document.getElementById('action-btn');
+        const loader = document.getElementById('loader');
+        const codeDisplay = document.getElementById('code-display');
+
+        btn.addEventListener('click', () => {
+            // Animate button click
+            btn.textContent = "PROCESSING...";
+            btn.style.background = "var(--neon-blue)";
+            btn.style.color = "#000";
+            
+            // Trigger intense visual
+            bloomPass.strength = 3.0;
+            controls.autoRotateSpeed = 5.0;
+            
+            setTimeout(() => {
+                activateGlitch();
+                btn.textContent = "EXECUTE_RENDER";
+                btn.style.background = "transparent";
+                btn.style.color = "var(--neon-pink)";
+            }, 1000);
+        });
+
+        function updateCodeDisplay(text) {
+            codeDisplay.innerHTML = text.replace(/\n/g, '<br>');
+        }
+
+        // --- ANIMATION LOOP ---
+        let time = 0;
+        let lastTime = performance.now();
+        let frames = 0;
+        let lastFpsUpdate = 0;
+
+        function animate(currentTime) {
+            requestAnimationFrame(animate);
+
+            // FPS Counter
+            frames++;
+            if (currentTime - lastFpsUpdate >= 1000) {
+                fpsDisplay.innerText = frames;
+                frames = 0;
+                lastFpsUpdate = currentTime;
+            }
+
+            const delta = (currentTime - lastTime) / 1000;
+            lastTime = currentTime;
+            time += delta;
+
+            // 1. Animate Core (Rotation & Pulse)
+            core.rotation.x += 0.5 * delta;
+            core.rotation.y += 0.5 * delta;
+            
+            // Pulse scale
+            const scale = 1 + Math.sin(time * 3) * 0.05;
+            core.scale.set(scale, scale, scale);
+            shell.scale.set(scale * 1.1, scale * 1.1, scale * 1.1);
+            shell.rotation.y -= 0.2 * delta;
+
+            // 2. Animate Nodes (Orbital Dance)
+            for (let i = 0; i < nodeCount; i++) {
+                const n = nodePositions[i];
+                // Move in orbits
+                const t = time * n.speed + n.offset;
+                const x = n.x * Math.cos(t * 0.5) - n.z * Math.sin(t * 0.5);
+                const z = n.x * Math.sin(t * 0.5) + n.z * Math.cos(t * 0.5);
+                const y = n.y + Math.sin(t) * 0.5; // Bobbing
+
+                dummy.position.set(x, y, z);
+                
+                // Rotate individual nodes
+                dummy.rotation.x = t;
+                dummy.rotation.y = t;
+                
+                // Pulse opacity by scaling slightly (visual trick)
+                const s = 1 + Math.sin(t * 2) * 0.2;
+                dummy.scale.set(s, s, s);
+
+                dummy.updateMatrix();
+                nodes.setMatrixAt(i, dummy.matrix);
+            }
+            nodes.instanceMatrix.needsUpdate = true;
+
+            // 3. Animate Particles (Matrix Rain Logic)
+            const positions = particleSystem.geometry.attributes.position.array;
+            for (let i = 1; i < config.particleCount * 3; i+=3) {
+                // Move particles down
+                positions[i] -= 0.1 + Math.random() * 0.1;
+                // Reset if below threshold
+                if (positions[i] < -20) {
+                    positions[i] = 20;
+                    positions[i-1] = (Math.random() - 0.5) * 80; // Randomize X
+                    positions[i+1] = (Math.random() - 0.5) * 80; // Randomize Z
+                }
+            }
+            particleSystem.geometry.attributes.position.needsUpdate = true;
+
+            // 4. Update Lights
+            pointLight1.position.x = Math.sin(time) * 15;
+            pointLight1.position.z = Math.cos(time) * 15;
+            pointLight2.position.x = Math.cos(time * 0.7) * 15;
+            pointLight2.position.z = Math.sin(time * 0.7) * 15;
+
+            // 5. Updates Controls & Renderer
+            controls.update();
+            
+            // Use composer for post-processing effects
+            composer.render();
+        }
+
+        // --- INITIALIZATION ---
+        window.addEventListener('resize', onResize);
+        window.addEventListener('mousemove', onMouseMove);
+        window.addEventListener('click', onClick);
+
+        // Hide loader when ready
+        window.onload = () => {
+            setTimeout(() => {
+                loader.style.opacity = 0;
+                setTimeout(() => {
+                    loader.style.display = 'none';
+                    // Intro animation for camera
+                    const startZ = camera.position.z;
+                    const targetZ = 15;
+                    let progress = 0;
+                    
+                    function introAnim() {
+                        progress += 0.02;
+                        if (progress < 1) {
+                            camera.position.z = startZ + (targetZ - startZ) * (1 - Math.pow(1 - progress, 3));
+                            requestAnimationFrame(introAnim);
+                        } else {
+                            controls.minDistance = 5; // Enable zooming after intro
+                        }
+                    }
+                    introAnim();
+                }, 500);
+            }, 1500); // Fake loading time
+        };
+
+        // Start loop
+        animate(0);
+
+    </script>
+</body>
+</html>
